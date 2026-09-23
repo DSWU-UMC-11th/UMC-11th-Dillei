@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'package:go_router/go_router.dart';
 
 class StartScreen extends StatelessWidget {
   const StartScreen({super.key});
@@ -62,7 +63,10 @@ class StartScreen extends StatelessWidget {
                 ],
               ),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  context.push('/register');
+                },
+                
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                   backgroundColor: AppColors.violet,

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-//import 'screens/profile_screen.dart';
-import 'screens/start_screen.dart';
-import 'theme/app_theme.dart';
+import 'router/app_router.dart';
 
 void main() {
   runApp(const MovieLogApp());
@@ -12,15 +10,15 @@ class MovieLogApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'MovieLog',
-      theme: AppTheme.light,
-      // 시작 화면 확인 시: const StartScreen()
-      home: const StartScreen()
-      // 프로필 화면 확인 시: const ProfileScreen()
-      //home: const ProfileScreen(),
-    
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.deepPurple,
+        scaffoldBackgroundColor: Colors.white,
+      ),
+      routerConfig: AppRouter.router,
     );
   }
 }
