@@ -36,10 +36,10 @@ class _RatingDialogState extends State<RatingDialog> {
               rating: _currentRating,
               onChanged: (val) => setState(() => _currentRating = val),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               '$_currentRating / 5.0',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF5B4FA9)),
             ),
             const SizedBox(height: 24),
             Row(
@@ -53,8 +53,9 @@ class _RatingDialogState extends State<RatingDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5B4FA9)),
                     onPressed: () => Navigator.pop(context, _currentRating),
-                    child: const Text('확인'),
+                    child: const Text('확인', style: TextStyle(color: Colors.white)),
                   ),
                 ),
               ],

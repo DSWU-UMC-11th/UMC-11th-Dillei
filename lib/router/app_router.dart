@@ -1,26 +1,29 @@
 import 'package:go_router/go_router.dart';
+import '../screens/start_screen.dart';
+import '../screens/register_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/movie_list_screen.dart';
 import '../screens/movie_detail_screen.dart';
-import '../screens/mypage_screen.dart';
-import '../screens/start_screen.dart';
-import '../screens/register_screen.dart';
+import '../screens/profile_screen.dart'; // profile_screen 연결
 import '../widgets/main_screen.dart';
 
 class AppRouter {
   AppRouter._();
 
   static final router = GoRouter(
-    initialLocation: '/start', // 최초 진입 경로
+    initialLocation: '/start',
     routes: [
+      // 1. 시작 화면
       GoRoute(
         path: '/start',
         builder: (context, state) => const StartScreen(),
       ),
+      // 2. 회원가입 화면
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
       ),
+      // 3. NavigationBar가 고정되는 메인 셸 (홈, 영화, 마이)
       ShellRoute(
         builder: (context, state, child) {
           return MainScreen(
@@ -39,11 +42,11 @@ class AppRouter {
           ),
           GoRoute(
             path: '/my',
-            builder: (context, state) => const MyPageScreen(),
+            builder: (context, state) => const ProfileScreen(), // ProfileScreen 사용
           ),
         ],
       ),
-      // 상세 화면은 NavigationBar를 덮고 뒤로 가기(pop)를 지원해야 하므로 최상위 스택으로 정의
+      // 4. 상세 화면 (뒤로가기 pop 지원을 위해 최상위 스택에 배치)
       GoRoute(
         path: '/movies/:movieId',
         builder: (context, state) {

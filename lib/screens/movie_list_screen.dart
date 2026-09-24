@@ -20,18 +20,29 @@ class _MovieListScreenState extends State<MovieListScreen> {
         : mockMovies.where((m) => m.genre == selectedGenre).toList();
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFBFBFC),
       appBar: AppBar(
-        title: const Text('영화 목록', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFFFBFBFC),
+        elevation: 0,
+        title: const Text(
+          '영화',
+          style: TextStyle(
+            color: Color(0xFF5B4FA9),
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
         actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.search, color: Color(0xFF5B4FA9), size: 26),
+            onPressed: () {},
+          ),
         ],
       ),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 장르 필터 Chip 가로 리스트
           SizedBox(
-            height: 48,
+            height: 38,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
@@ -43,24 +54,36 @@ class _MovieListScreenState extends State<MovieListScreen> {
                 return ChoiceChip(
                   label: Text(genre),
                   selected: isSelected,
-                  onSelected: (selected) {
-                    if (selected) setState(() => selectedGenre = genre);
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : Colors.black87,
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  selectedColor: const Color(0xFF5B4FA9),
+                  backgroundColor: const Color(0xFFECEBFA),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  side: BorderSide.none,
+                  showCheckmark: false,
+                  onSelected: (val) {
+                    if (val) setState(() => selectedGenre = genre);
                   },
                 );
               },
             ),
           ),
           const SizedBox(height: 12),
-          // 2열 그리드 뷰
+          // 4개만 화면에 딱 채워지도록 childAspectRatio 조정 (0.55)
           Expanded(
             child: GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: filteredMovies.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.65,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 20,
+                childAspectRatio: 0.55, // 포스터 세로 길이를 늘려 첫 화면에 4개만 노출
               ),
               itemBuilder: (context, index) => MovieCard(movie: filteredMovies[index]),
             ),
