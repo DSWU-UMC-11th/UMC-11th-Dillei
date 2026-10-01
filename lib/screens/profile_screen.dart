@@ -9,7 +9,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.warmWhite,
+      backgroundColor: AppColors.white,
       appBar: const CommonAppBar(
         title: '내 프로필',
         centerTitle: false,
