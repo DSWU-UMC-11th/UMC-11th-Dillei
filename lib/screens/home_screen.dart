@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../models/movie.dart';
+import 'package:provider/provider.dart';
+import '../view_models/movie_home_view_model.dart';
+import '../widgets/tmdb_poster_image.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final heroMovie = mockMovies.first;
-    final popularMovies = mockMovies.where((m) => m.rank != null).toList();
+    final viewModel = context.watch<MovieHomeViewModel>();
+    final popularMovies = viewModel.popularMovies;
 
-    // 1, 2, 3위가 아예 안 보이고 '인기 영화' 텍스트만 걸치도록 화면 높이 할당
+    // 만약 데이터가 아직 로딩 중이거나 비어있을 때를 대비한 안전 장치
+    final heroMovie = popularMovies.isNotEmpty ? popularMovies.first : null;
+
     final screenHeight = MediaQuery.sizeOf(context).height;
     final heroCardHeight = screenHeight * 0.64;
 
@@ -49,12 +53,16 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // 메인 추천 대형 카드 (더 길어진 세로 길이 적용)
+          // 메인 추천 대형 카드 (TMDB 첫 번째 인기 영화 연결)
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => context.push('/movies/${heroMovie.id}'),
+            onTap: () {
+              if (heroMovie != null) {
+                context.push('/movies/${heroMovie.id}');
+              }
+            },
             child: Container(
-              height: heroCardHeight, // 대폭 확장된 배너 높이
+              height: heroCardHeight,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
                 color: Colors.black,
@@ -64,11 +72,13 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(24),
-                    child: Image.asset(
-                      heroMovie.posterAsset,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(color: Colors.grey.shade900),
-                    ),
+                    child: heroMovie != null
+                        ? TmdbPosterImage(
+                            posterPath: heroMovie.posterPath,
+                            width: double.infinity,
+                            height: double.infinity,
+                          )
+                        : Container(color: Colors.grey.shade900),
                   ),
                   Container(
                     decoration: BoxDecoration(
@@ -88,9 +98,9 @@ class HomeScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 추천 신작 라운드 태그
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
                             color: const Color(0xFF5B4FA9),
                             borderRadius: BorderRadius.circular(20),
@@ -106,7 +116,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          heroMovie.title,
+                          heroMovie?.title ?? '불러오는 중...',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 22,
@@ -115,14 +125,15 @@ class HomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${heroMovie.tags.take(2).join(' · ')} · 120분',
+                          heroMovie != null
+                              ? '평점 ${heroMovie.voteAverage} · 개봉일 ${heroMovie.releaseDate ?? '정보 없음'}'
+                              : '',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.8),
                             fontSize: 13,
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // 둥근 알약형 상세보기 버튼
                         SizedBox(
                           width: double.infinity,
                           height: 46,
@@ -134,7 +145,11 @@ class HomeScreen extends StatelessWidget {
                               ),
                               elevation: 0,
                             ),
-                            onPressed: () => context.push('/movies/${heroMovie.id}'),
+                            onPressed: () {
+                              if (heroMovie != null) {
+                                context.push('/movies/${heroMovie.id}');
+                              }
+                            },
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -161,7 +176,7 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // 인기 영화 헤더 (첫 화면에서는 이 텍스트 라인까지만 보이게 됨)
+          // 인기 영화 헤더
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -184,80 +199,92 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // 스크롤해야만 나타나는 인기 영화 리스트
+          // 스크롤 가능한 인기 영화 리스트 (TMDB 데이터 연동)
           SizedBox(
             height: 190,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: popularMovies.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final movie = popularMovies[index];
-                return GestureDetector(
-                  onTap: () => context.push('/movies/${movie.id}'),
-                  child: SizedBox(
-                    width: 120,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Image.asset(
-                                  movie.posterAsset,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => Container(color: Colors.grey.shade300),
-                                ),
-                                Positioned(
-                                  top: 6,
-                                  left: 6,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.65),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      '${index + 1}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
+            child: viewModel.status == MovieHomeLoadStatus.loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: popularMovies.length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final movie = popularMovies[index];
+                      return GestureDetector(
+                        onTap: () => context.push('/movies/${movie.id}'),
+                        child: SizedBox(
+                          width: 120,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      TmdbPosterImage(
+                                        posterPath: movie.posterPath,
+                                        width: 120,
+                                        height: double.infinity,
                                       ),
-                                    ),
+                                      Positioned(
+                                        top: 6,
+                                        left: 6,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black
+                                                .withValues(alpha: 0.65),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            '${index + 1}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                movie.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  const Icon(Icons.star,
+                                      size: 12, color: Colors.amber),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    movie.voteAverage.toStringAsFixed(1),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          movie.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            const Icon(Icons.star, size: 12, color: Colors.amber),
-                            const SizedBox(width: 2),
-                            Text(
-                              movie.rating.toStringAsFixed(1),
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           const SizedBox(height: 28),
         ],

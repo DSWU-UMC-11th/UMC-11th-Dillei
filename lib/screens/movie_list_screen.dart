@@ -1,150 +1,225 @@
 import 'package:flutter/material.dart';
-import '../models/movie.dart';
-import '../services/fake_movie_service.dart';
-import '../services/genre_preference.dart';
-import '../widgets/movie_grid.dart';
-import '../widgets/movie_state_views.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+import '../view_models/movie_list_view_model.dart';
 
-class MovieListScreen extends StatefulWidget {
+class MovieListScreen extends StatelessWidget {
   const MovieListScreen({super.key});
 
   @override
-  State<MovieListScreen> createState() => _MovieListScreenState();
-}
-
-class _MovieListScreenState extends State<MovieListScreen> {
-  final FakeMovieService _movieService = const FakeMovieService();
-  final GenrePreference _genrePreference = GenrePreference();
-
-  late Future<List<Movie>> _moviesFuture;
-  String _selectedGenre = '전체';
-
-  // 3번째 사진과 정확히 일치하는 장르 목록
-  final List<String> _genres = const ['전체', '드라마', 'SF', '애니메이션', '스릴러'];
-
-  @override
-  void initState() {
-    super.initState();
-    // 1. build 안이 아닌 initState에서 Future 최초 1회 생성
-    _moviesFuture = _movieService.fetchMovies();
-    _restoreSelectedGenre();
-  }
-
-  // 앱 재실행 시 저장된 장르 불러오기
-  Future<void> _restoreSelectedGenre() async {
-    final savedGenre = await _genrePreference.read();
-    if (!mounted) return;
-    setState(() {
-      _selectedGenre = savedGenre;
-    });
-  }
-
-  // 장르 선택 및 로컬 저장
-  Future<void> _onGenreSelected(String genre) async {
-    setState(() {
-      _selectedGenre = genre;
-    });
-    await _genrePreference.save(genre);
-  }
-
-  // 에러 화면에서 다시 시도할 때만 새로운 Future 할당
-  void _retry() {
-    setState(() {
-      _moviesFuture = _movieService.fetchMovies();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // 배경을 순백색(Colors.white)으로 고정하여 다른 탭 색상 간섭 방지
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
+        title: const Text(
+          '영화',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
-        scrolledUnderElevation: 0,
-        title: const Text(
-          '영화', // 3번째 사진과 동일한 타이틀
-          style: TextStyle(
-            color: Color(0xFF6750A4), // 3주차 보라색 메인 컬러
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16.0),
-            child: Icon(Icons.search, color: Color(0xFF6750A4), size: 28), // 3번째 사진 돋보기 아이콘
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.black87),
+            onPressed: () {
+              // 검색 기능 (추후 확장)
+            },
           ),
         ],
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. 상단 장르 Chip 가로 스크롤 영역 (3번째 사진 스타일)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: _genres.map((genre) {
-                final isSelected = _selectedGenre == genre;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: ChoiceChip(
-                    label: Text(
-                      genre,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF49454F),
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
+      backgroundColor: Colors.white,
+      body: Consumer<MovieListViewModel>(
+        builder: (context, viewModel, child) {
+          return switch (viewModel.status) {
+            MovieListLoadStatus.idle ||
+            MovieListLoadStatus.loading => const Center(
+                child: CircularProgressIndicator(color: Colors.deepPurple),
+              ),
+            MovieListLoadStatus.error => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(viewModel.message ?? '영화를 불러오지 못했어요.'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => viewModel.loadInitial(),
+                      child: const Text('다시 시도'),
                     ),
-                    selected: isSelected,
-                    selectedColor: const Color(0xFF6750A4), // 선택 시 보라색
-                    backgroundColor: const Color(0xFFF3EDF7), // 비선택 시 연보라
-                    showCheckmark: false, // 3번째 사진처럼 체크 표시 제거
-                    side: BorderSide.none,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                  ],
+                ),
+              ),
+            MovieListLoadStatus.empty => const Center(
+                child: Text('등록된 영화가 없습니다.'),
+              ),
+            MovieListLoadStatus.success => Column(
+                children: [
+                  // 1. 상단 장르 필터 칩 (연한 보라색 / 진한 보라색, 둥근 모양, 테두리 없음)
+                  SizedBox(
+                    height: 56,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemCount: viewModel.genres.length + 1,
+                      itemBuilder: (context, index) {
+                        final isSelected = (index == 0 && viewModel.selectedGenreId == null) ||
+                            (index > 0 && viewModel.selectedGenreId == viewModel.genres[index - 1].id);
+
+                        final labelText = index == 0 ? '전체' : viewModel.genres[index - 1].name;
+                        final genreId = index == 0 ? null : viewModel.genres[index - 1].id;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: GestureDetector(
+                            onTap: () => viewModel.selectGenre(genreId),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                              decoration: BoxDecoration(
+                                // 선택됨: 진한 보라색 / 선택 안됨: 연한 보라색
+                                color: isSelected ? const Color(0xFF5B4FA9) : const Color(0xFFEFECE9),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                labelText,
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    onSelected: (_) => _onGenreSelected(genre),
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 8),
+                  const SizedBox(height: 8),
+                  // 2. 영화 목록 그리드
+                  Expanded(
+                    child: GridView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.58, // 세로 비율 조정
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 16,
+                      ),
+                      itemCount: viewModel.movies.length,
+                      itemBuilder: (context, index) {
+                        final movie = viewModel.movies[index];
+                        final posterUrl = movie.posterPath != null && movie.posterPath!.isNotEmpty
+                            ? 'https://image.tmdb.org/t/p/w500${movie.posterPath}'
+                            : '';
 
-          // 2. 비동기 상태 분기 처리 영역
-          Expanded(
-            child: FutureBuilder<List<Movie>>(
-              future: _moviesFuture,
-              builder: (context, snapshot) {
-                // (1) Loading 상태
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const MovieListLoading();
-                }
+                        // 연도 추출 (releaseDate가 있으면 연도만 파싱, 없으면 기본 2024)
+                        String yearStr = '2024';
+                        if (movie.releaseDate != null && movie.releaseDate!.length >= 4) {
+                          yearStr = movie.releaseDate!.substring(0, 4);
+                        }
 
-                // (2) Error 상태
-                if (snapshot.hasError) {
-                  return MovieListError(onRetry: _retry);
-                }
+                        // 장르 이름 매핑 (genreIds의 첫 번째 ID를 장르 이름으로 변환하거나 기본 텍스트)
+                        String genreStr = '드라마';
+                        if (movie.genreIds.isNotEmpty && viewModel.genres.isNotEmpty) {
+                          try {
+                            final matchedGenre = viewModel.genres.firstWhere(
+                              (g) => g.id == movie.genreIds.first,
+                            );
+                            genreStr = matchedGenre.name;
+                          } catch (_) {
+                            genreStr = '영화';
+                          }
+                        }
 
-                final allMovies = snapshot.data ?? const <Movie>[];
-                final filteredMovies = _selectedGenre == '전체'
-                    ? allMovies
-                    : allMovies.where((m) => m.genre == _selectedGenre).toList();
-
-                // (3) Empty 상태
-                if (filteredMovies.isEmpty) {
-                  return const MovieListEmpty();
-                }
-
-                // (4) Success 상태: 3주차 MovieGrid 호출
-                return MovieGrid(movies: filteredMovies);
-              },
-            ),
-          ),
-        ],
+                        return GestureDetector(
+                          onTap: () {
+                            context.push('/movies/${movie.id}', extra: movie);
+                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 포스터 이미지 및 우측 상단 평점 배지
+                              Expanded(
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
+                                        color: Colors.grey[200],
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: posterUrl.isNotEmpty
+                                          ? Image.network(
+                                              posterUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) =>
+                                                  const Center(
+                                                child: Icon(Icons.broken_image, color: Colors.grey),
+                                              ),
+                                            )
+                                          : const Center(
+                                              child: Icon(Icons.movie, size: 40, color: Colors.grey),
+                                            ),
+                                    ),
+                                    // 우측 상단 평점 배지
+                                    Positioned(
+                                      top: 8,
+                                      right: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.65),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.star, color: Colors.amber, size: 12),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              movie.voteAverage.toStringAsFixed(1),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // 영화 제목
+                              Text(
+                                movie.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              // 개봉연도 · 장르 순서
+                              Text(
+                                '$yearStr · $genreStr',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+          };
+        },
       ),
     );
   }
