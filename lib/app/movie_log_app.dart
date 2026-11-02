@@ -1,19 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // 1. provider 패키지 임포트 추가
-import '../../core/network/tmdb_client.dart'; // 경로에 맞게 확인
-import '../../data/services/tmdb_movie_service.dart'; // 경로에 맞게 확인
-import '../../router/app_router.dart';
+import 'package:provider/provider.dart';
+import '../core/network/tmdb_client.dart';
+import '../core/network/movie_log_client.dart'; // 워크북 백엔드 클라이언트
+import '../data/services/tmdb_movie_service.dart';
+import '../data/services/member_check_service.dart'; // 닉네임/이메일 중복 확인 서비스
+import '../data/services/rating_api_service.dart'; // 평점 조회 서비스
+import '../router/app_router.dart';
 
 class MovieLogApp extends StatelessWidget {
   const MovieLogApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // 2. MultiProvider로 감싸줍니다.
+    // 워크북 백엔드 전용 Dio 클라이언트 생성 (두 서비스가 하나를 공유)
+    final movieLogClient = createMovieLogClient();
+
     return MultiProvider(
       providers: [
+        // TMDB 영화 서비스
         Provider<TmdbMovieService>(
           create: (_) => TmdbMovieService(createTmdbClient()),
+        ),
+        // 6주차: 회원 중복 확인 서비스 (닉네임, 이메일)
+        Provider<MemberCheckService>(
+          create: (_) => MemberCheckService(movieLogClient),
+        ),
+        // 6주차: 유저 평점 조회 서비스
+        Provider<RatingApiService>(
+          create: (_) => RatingApiService(movieLogClient),
         ),
       ],
       child: MaterialApp.router(

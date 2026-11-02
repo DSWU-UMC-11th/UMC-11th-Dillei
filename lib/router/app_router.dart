@@ -1,33 +1,45 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../data/services/tmdb_movie_service.dart';
+import '../data/services/rating_api_service.dart';
+import '../data/services/member_check_service.dart';
 import '../screens/start_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/movie_list_screen.dart';
 import '../screens/movie_detail_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/my_ratings_screen.dart';
 import '../widgets/main_screen.dart';
 import '../view_models/movie_home_view_model.dart';
 import '../view_models/movie_list_view_model.dart';
+import '../view_models/my_ratings_view_model.dart';
+import '../view_models/sign_up_view_model.dart';
 
 class AppRouter {
   AppRouter._();
 
+  static final rootNavigatorKey = GlobalKey<NavigatorState>();
+
   static final router = GoRouter(
     initialLocation: '/start',
+    navigatorKey: rootNavigatorKey,
     routes: [
-      // 1. 시작 화면
       GoRoute(
         path: '/start',
         builder: (context, state) => const StartScreen(),
       ),
-      // 2. 회원가입 화면
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) => ChangeNotifierProvider<SignUpViewModel>(
+          create: (context) => SignUpViewModel(
+            context.read<MemberCheckService>(),
+          ),
+          child: const RegisterScreen(),
+        ),
       ),
-      // 3. NavigationBar가 고정되는 메인 셸 (홈, 영화, 마이)
       ShellRoute(
         builder: (context, state, child) {
           return MainScreen(
@@ -57,14 +69,27 @@ class AppRouter {
           GoRoute(
             path: '/my',
             builder: (context, state) => const ProfileScreen(),
+            routes: [
+              GoRoute(
+                path: 'ratings',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => ChangeNotifierProvider<MyRatingsViewModel>(
+                  create: (context) => MyRatingsViewModel(
+                    context.read<RatingApiService>(),
+                    context.read<TmdbMovieService>(),
+                    sampleMemberId, // 6주차 학습용 memberId (1)
+                  )..load(),
+                  child: const MyRatingsScreen(),
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      // 4. 상세 화면 (뒤로가기 pop 지원을 위해 최상위 스택에 배치)
       GoRoute(
         path: '/movies/:movieId',
         builder: (context, state) {
-          final movieId = state.pathParameters['movieId']; 
+          final movieId = state.pathParameters['movieId'];
           final movie = state.extra;
           return MovieDetailScreen(movieId: movieId, movie: movie);
         },

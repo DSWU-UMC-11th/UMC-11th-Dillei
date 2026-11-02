@@ -19,7 +19,7 @@ class MovieHomeViewModel extends ChangeNotifier {
 
     try {
       final page = await _service.fetchPopular();
-      popularMovies = page.results.take(5).toList();
+      popularMovies = page.take(5).toList();
       status = popularMovies.isEmpty
           ? MovieHomeLoadStatus.empty
           : MovieHomeLoadStatus.success;

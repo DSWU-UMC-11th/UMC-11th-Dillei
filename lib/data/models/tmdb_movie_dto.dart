@@ -22,18 +22,24 @@ class TmdbMovieDto {
   final double popularity;
 
   factory TmdbMovieDto.fromJson(Map<String, dynamic> json) {
-    return TmdbMovieDto(
-      id: (json['id'] as num).toInt(),
-      title: json['title'] as String? ?? '제목 없음',
-      overview: json['overview'] as String? ?? '',
-      posterPath: json['poster_path'] as String?,
-      backdropPath: json['backdrop_path'] as String?,
-      releaseDate: json['release_date'] as String?,
-      genreIds: (json['genre_ids'] as List<dynamic>? ?? const [])
-          .map((value) => (value as num).toInt())
-          .toList(),
-      voteAverage: (json['vote_average'] as num? ?? 0).toDouble(),
-      popularity: (json['popularity'] as num? ?? 0).toDouble(),
-    );
+  final genreIds = json['genre_ids'] as List<dynamic>? ??
+      (json['genres'] as List<dynamic>?)
+          ?.map((genre) => genre['id'])
+          .toList() ??
+      const [];
+
+  return TmdbMovieDto(
+    id: (json['id'] as num).toInt(),
+    title: json['title'] as String? ?? '제목 없음',
+    overview: json['overview'] as String? ?? '',
+    posterPath: json['poster_path'] as String?,
+    backdropPath: json['backdrop_path'] as String?,
+    releaseDate: json['release_date'] as String?,
+    genreIds: genreIds
+        .map((value) => (value as num).toInt())
+        .toList(),
+    voteAverage: (json['vote_average'] as num? ?? 0).toDouble(),
+    popularity: (json['popularity'] as num? ?? 0).toDouble(),
+  );
   }
-}
+}  
