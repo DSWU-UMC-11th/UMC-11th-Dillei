@@ -3,9 +3,10 @@ import 'package:provider/provider.dart';
 import '../core/network/tmdb_client.dart';
 import '../core/network/movie_log_client.dart'; // 워크북 백엔드 클라이언트
 import '../data/services/tmdb_movie_service.dart';
-import '../data/services/member_check_service.dart'; // 닉네임/이메일 중복 확인 서비스
+import '../data/services/sign_up_service.dart';
 import '../data/services/rating_api_service.dart'; // 평점 조회 서비스
 import '../router/app_router.dart';
+import '../view_models/learning_member_session.dart';
 
 class MovieLogApp extends StatelessWidget {
   const MovieLogApp({super.key});
@@ -21,14 +22,17 @@ class MovieLogApp extends StatelessWidget {
         Provider<TmdbMovieService>(
           create: (_) => TmdbMovieService(createTmdbClient()),
         ),
-        // 6주차: 회원 중복 확인 서비스 (닉네임, 이메일)
-        Provider<MemberCheckService>(
-          create: (_) => MemberCheckService(movieLogClient),
+        // 6주차: 회원가입 서비스
+        Provider<SignUpService>(
+          create: (_) => SignUpService(movieLogClient),
         ),
         // 6주차: 유저 평점 조회 서비스
         Provider<RatingApiService>(
           create: (_) => RatingApiService(movieLogClient),
         ),
+        ChangeNotifierProvider<LearningMemberSession>(
+  create: (_) => LearningMemberSession(),
+  ),
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
