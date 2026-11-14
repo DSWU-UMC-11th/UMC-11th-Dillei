@@ -1,71 +1,71 @@
 import 'package:dio/dio.dart';
 
+import '../models/common_response.dart';
 import '../models/rating_dto.dart';
 import '../models/rating_request.dart';
 
+// v7 등록·수정 result는 Rating 객체입니다.
+RatingDto parseRatingResult(Object? data) {
+  if (data is! Map<String, dynamic>) {
+    throw StateError('평점 응답 형식이 올바르지 않습니다.');
+  }
+  final common = CommonResponse<RatingDto>.fromJson(
+    data,
+    (value) => RatingDto.fromJson(value as Map<String, dynamic>),
+  );
+  final rating = common.result;
+  if (rating == null) throw StateError('평점 result가 없습니다.');
+  return rating;
+}
+
+// 공개 유저별 조회는 wrapper 없이 배열입니다.
+List<RatingDto> parseRatingList(Object? data) {
+  if (data is! List) throw StateError('평점 목록 응답은 배열이어야 합니다.');
+  return data
+      .map((value) => RatingDto.fromJson(value as Map<String, dynamic>))
+      .toList();
+}
+
 class RatingApiService {
-  RatingApiService(this._dio);
+  RatingApiService(this._publicDio, this._authDio);
 
-  final Dio _dio;
+  final Dio _publicDio; // 공개 조회용: Interceptor 없음
+  final Dio _authDio; // 등록/수정/삭제용: AuthInterceptor 등록
 
-  // TEMP: "저장 성공 후 GET만 실패" 인증 영상용. 인증이 끝나면 이 변수와 아래 if 블록을 지우세요.
-  static bool debugFailNextFetch = false;
-
-  // 내 평점 조회 (200 + 직접 배열)
+  /// 공개 API: memberId path 유지, 토큰 없음.
+  /// v7 로그인에는 memberId가 없어서 이번 평점 화면은 이 메서드를 쓰지 않습니다.
   Future<List<RatingDto>> fetchMyRatings(int memberId) async {
-    if (debugFailNextFetch) {
-      debugFailNextFetch = false;
-      throw DioException(
-        requestOptions: RequestOptions(path: '/debug'),
-        type: DioExceptionType.connectionError,
-      );
-    }
-
-    final response = await _dio.get('/v6/members/$memberId/ratings');
-    final list = response.data as List<dynamic>;
-
-    return list
-        .map((item) => RatingDto.fromJson(item as Map<String, dynamic>))
-        .toList();
+    final response = await _publicDio.get('/v7/members/$memberId/ratings');
+    return parseRatingList(response.data);
   }
 
-  // 평점 등록 (201 + wrapper). result는 계약이 불확실해서 파싱하지 않습니다.
-  Future<void> createRating({
-    required int memberId,
-    required CreateRatingRequest request,
-  }) async {
-    final response = await _dio.post(
-      '/v6/members/$memberId/ratings',
+  // 평점 등록: path와 body에 memberId가 없습니다. result의 Rating 객체를 돌려줍니다.
+  Future<RatingDto> createRating(CreateRatingRequest request) async {
+    final response = await _authDio.post(
+      '/v7/ratings',
       data: request.toJson(),
     );
-    if (response.statusCode != 201) {
-      throw StateError('예상하지 못한 등록 응답: ${response.statusCode}');
-    }
+    return parseRatingResult(response.data);
   }
 
-  // 평점 수정 (200 + result null).
-  // comment를 생략하면 기존 후기가 null로 덮이므로 항상 명시해서 보냅니다.
-  Future<void> updateRating({
-    required int memberId,
+  // 평점 수정: PATCH는 부분 수정이 아니라 전체 교체입니다.
+  // comment를 생략하면 null로 덮어써지므로 score와 comment를 항상 함께 보냅니다.
+  Future<RatingDto> updateRating({
     required int ratingId,
     required int score,
     String? comment,
   }) async {
-    await _dio.patch(
-      '/v6/members/$memberId/ratings/$ratingId',
+    final response = await _authDio.patch(
+      '/v7/ratings/$ratingId',
       data: {'score': score, 'comment': comment},
     );
+    return parseRatingResult(response.data);
   }
 
-  // 평점 삭제 (204, body 없음 → 파싱하지 않음)
-  Future<void> deleteRating({
-    required int memberId,
-    required int ratingId,
-  }) async {
-    final response = await _dio.delete(
-      '/v6/members/$memberId/ratings/$ratingId',
-    );
-    if (response.statusCode != 204) {
+  // 평점 삭제: v7 성공은 204가 아니라 result가 null인 200입니다.
+  Future<void> deleteRating(int ratingId) async {
+    final response = await _authDio.delete('/v7/ratings/$ratingId');
+    if (response.statusCode != 200) {
       throw StateError('예상하지 못한 삭제 응답: ${response.statusCode}');
     }
   }
@@ -79,11 +79,4 @@ String writeErrorMessage(DioException error) {
     if (message is String && message.isNotEmpty) return message;
   }
   return '요청에 실패했습니다. 잠시 후 다시 시도해 주세요.';
-}
-
-// 403·404는 화면의 목록이 서버 상태와 어긋났다는 뜻이므로 다시 조회합니다.
-bool shouldRefreshAfterRatingError(DioException error) {
-  final data = error.response?.data;
-  final code = data is Map<String, dynamic> ? data['code'] as String? : null;
-  return code == 'COMMON403' || code == 'COMMON404';
 }

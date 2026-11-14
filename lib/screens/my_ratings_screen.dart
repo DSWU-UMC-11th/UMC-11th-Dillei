@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../core/network/api_error.dart';
 import '../data/models/rating_dto.dart';
 import '../data/models/rating_with_movie.dart';
 import '../data/services/rating_api_service.dart';
@@ -131,15 +132,7 @@ class MyRatingsScreen extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (vm.status == MyRatingsLoadStatus.error) {
-      final isRefreshFailure = vm.refreshWarning != null;
-      return _buildErrorView(
-        vm.refreshWarning ?? vm.message ?? '평점을 불러오지 못했습니다.',
-        isRefreshFailure ? '조회만 다시 시도' : '다시 시도',
-        () => vm.load(), // GET만 다시 호출. POST/PATCH/DELETE는 보내지 않음
-      );
-    }
-
+    // v7에서는 목록을 서버에서 읽지 않으므로 error 상태가 없습니다.
     if (vm.status == MyRatingsLoadStatus.empty) {
       return _buildEmptyView();
     }
@@ -157,7 +150,7 @@ class MyRatingsScreen extends StatelessWidget {
           ),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () => vm.load(showLoading: false),
+            onRefresh: vm.load,
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               itemCount: vm.ratings.length,
@@ -313,8 +306,9 @@ class MyRatingsScreen extends StatelessWidget {
     final saved = await showDialog<bool>(
       context: context,
       barrierDismissible: false, // 저장 중 바깥 탭 방지
-      builder: (_) => RatingDialog(
+      builder: (dialogContext) => RatingDialog(
         initialScore: rating.score,
+        // PATCH는 전체 교체입니다. 기존 score·comment를 채워서 열고 두 값을 함께 보냅니다.
         initialComment: rating.comment, // null이면 TextField는 빈 칸으로 시작
         onSubmit: (score, comment) async {
           try {
@@ -324,7 +318,14 @@ class MyRatingsScreen extends StatelessWidget {
               comment: comment,
             );
           } on DioException catch (error) {
-            // 400/403/404 서버 문구를 Dialog 안에 표시
+            if (isAuthExpiredCode(apiErrorCode(error))) {
+              // 세션 만료: Dialog를 닫고, 안내는 로그인 화면이 합니다.
+              if (dialogContext.mounted) {
+                Navigator.of(dialogContext).pop(false);
+              }
+              throw StateError('로그인이 만료됐습니다.');
+            }
+            // 400/403/404 서버 문구를 Dialog 안에 표시 (로그아웃하지 않음)
             throw StateError(writeErrorMessage(error));
           }
         },
@@ -346,11 +347,17 @@ class MyRatingsScreen extends StatelessWidget {
     final deleted = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _DeleteRatingDialog(
+      builder: (dialogContext) => _DeleteRatingDialog(
         onConfirm: () async {
           try {
             await vm.deleteRating(ratingId);
           } on DioException catch (error) {
+            if (isAuthExpiredCode(apiErrorCode(error))) {
+              if (dialogContext.mounted) {
+                Navigator.of(dialogContext).pop(false);
+              }
+              throw StateError('로그인이 만료됐습니다.');
+            }
             throw StateError(writeErrorMessage(error));
           }
         },
@@ -382,6 +389,7 @@ class MyRatingsScreen extends StatelessWidget {
     if (confirmed != true) return;
 
     final failed = await vm.deleteSelectedRatings();
+    if (failed == null) return; // 세션 만료·로그아웃: 안내는 로그인 화면이 합니다.
 
     messenger.showSnackBar(
       SnackBar(
@@ -404,34 +412,16 @@ class MyRatingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildErrorView(
-    String message,
-    String buttonLabel,
-    VoidCallback onRetry,
-  ) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: onRetry,
-              child: Text(buttonLabel),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildEmptyView() {
     return const Center(
-      child: Text(
-        '아직 등록한 평점이 없습니다.',
-        style: TextStyle(color: subTextColor),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 24),
+        child: Text(
+          '이번 로그인 후 등록한 평점이 여기에 표시돼요.\n'
+          '내 평점 전체를 조회하는 API가 아직 없어서 앱을 다시 켜면 목록은 비워져요.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: subTextColor),
+        ),
       ),
     );
   }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/models/tmdb_movie_dto.dart';
-import '../view_models/learning_member_session.dart';
+import '../view_models/auth_view_model.dart';
 import '../view_models/movie_detail_view_model.dart';
 import '../widgets/rating_dialog.dart';
 
@@ -19,8 +19,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   bool isFavorite = false;
   double userRating = 0.0;
 
-  Future<void> _showRatingDialog() async {
+    Future<void> _showRatingDialog() async {
     final viewModel = context.read<MovieDetailViewModel>();
+    final auth = context.read<AuthViewModel>();
     final messenger = ScaffoldMessenger.of(context);
     final movieId = widget.movie.id; // TmdbMovieDto.id를 그대로 사용
 
@@ -31,7 +32,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     final saved = await showDialog<bool>(
       context: context,
       barrierDismissible: false, // 저장 중 바깥 탭 방지
-      builder: (_) => RatingDialog(
+      builder: (dialogContext) => RatingDialog(
         onSubmit: (score, comment) async {
           final ok = await viewModel.submitRating(
             movieId: movieId,
@@ -39,6 +40,11 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             comment: comment,
           );
           if (!ok) {
+            // 세션이 만료돼 로그아웃 상태가 됐다면 Dialog를 닫습니다.
+            if (auth.status != AuthStatus.signedIn &&
+                dialogContext.mounted) {
+              Navigator.of(dialogContext).pop(false);
+            }
             throw StateError(viewModel.errorMessage ?? '저장에 실패했습니다.');
           }
           savedScore = score;
@@ -62,7 +68,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final movie = widget.movie;
-    final memberId = context.watch<LearningMemberSession>().memberId;
+    // final memberId = context.watch<LearningMemberSession>().memberId;
 
     final posterPath = movie.posterPath ?? '';
     final posterUrl = posterPath.isNotEmpty
@@ -284,21 +290,19 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
+                                Expanded(
                   child: ElevatedButton.icon(
-                    // 회원가입 결과(memberId)가 없으면 비활성화
-                    onPressed: memberId == null ? null : _showRatingDialog,
+                    onPressed: _showRatingDialog,
                     icon: const Icon(
                       Icons.rate_review_outlined,
                       color: Colors.white,
                     ),
-                    label: Text(
-                      memberId == null ? '가입 후 평점 가능' : '평점 남기기',
-                      style: const TextStyle(color: Colors.white),
+                    label: const Text(
+                      '평점 남기기',
+                      style: TextStyle(color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF5B4FA9),
-                      disabledBackgroundColor: Colors.grey,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),

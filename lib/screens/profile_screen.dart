@@ -1,9 +1,13 @@
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../core/storage/token_storage.dart';
+import '../data/models/member_info.dart';
 import '../theme/app_colors.dart';
-import '../widgets/common_app_bar.dart';
+import '../view_models/auth_view_model.dart';
+import '../widgets/movielog_button.dart';
 import '../widgets/stat_item.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -11,39 +15,100 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // read가 아니라 watch: member·memberStatus가 바뀌면 화면이 다시 그려집니다.
+    final auth = context.watch<AuthViewModel>();
+    final member = auth.member;
+
     return Scaffold(
       backgroundColor: AppColors.white,
-      appBar: const CommonAppBar(
-        title: '내 프로필',
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
-        titleStyle: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: AppColors.violet,
+        title: const Text(
+          '내 프로필',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.violet,
+          ),
         ),
+        actions: [
+          IconButton(
+            tooltip: '로그아웃',
+            icon: const Icon(Icons.logout, color: AppColors.violet),
+            // 이동은 직접 하지 않습니다. signedOut이 되면 Router가 /login으로 보냅니다.
+            onPressed: auth.storageCleanupInProgress
+                ? null
+                : () => context.read<AuthViewModel>().logout(),
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
+      body: SafeArea(child: _buildBody(context, auth, member)),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    AuthViewModel auth,
+    MemberInfo? member,
+  ) {
+    // 내 정보 로딩·실패·재시도 (Challenge)
+    if (member == null) {
+      if (auth.memberStatus == MemberLoadStatus.error) {
+        return Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.all(24),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: const [
-                ProfileHeader(
-                  imagePath: 'assets/images/profile.jpg',
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  auth.message ?? '내 정보를 불러오지 못했어요.',
+                  textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 28),
-                ProfileStatsSection(),
-                SizedBox(height: 32),
-                FavoriteGenresSection(),
-                SizedBox(height: 32),
-                MyRatingsMenuSection(),
+                const SizedBox(height: 16),
+                MovieLogButton(
+                  label: '다시 시도',
+                  onPressed: () => auth.loadMember(force: true),
+                ),
               ],
             ),
           ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ProfileHeader(
+              imagePath: 'assets/images/profile.jpg',
+              member: member,
+            ),
+            const SizedBox(height: 28),
+            const ProfileStatsSection(),
+            const SizedBox(height: 32),
+            const FavoriteGenresSection(),
+            const SizedBox(height: 32),
+            const MyRatingsMenuSection(),
+
+            // 검증용: 무효 토큰을 저장한 뒤 앱을 재시작하면 만료 흐름을 재현할 수 있습니다.
+            // 인증 증거를 다 찍은 뒤 이 블록을 지우세요.
+            if (kDebugMode) ...[
+              const SizedBox(height: 32),
+              TextButton(
+                onPressed: () => context
+                    .read<TokenStorage>()
+                    .saveAccessToken('invalid.token.value'),
+                child: const Text('[디버그] 무효 토큰 저장'),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -55,12 +120,21 @@ class ProfileScreen extends StatelessWidget {
 // 1. 프로필 상단 영역
 // ==========================================
 
+String _joinedText(DateTime createdAt) {
+  final d = createdAt.toLocal();
+  final mm = d.month.toString().padLeft(2, '0');
+  final dd = d.day.toString().padLeft(2, '0');
+  return '${d.year}.$mm.$dd 가입'; // 예: 2026.10.10 가입 (Challenge)
+}
+
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
+    required this.member,
     this.imagePath,
   });
 
+  final MemberInfo member;
   final String? imagePath;
 
   @override
@@ -90,12 +164,34 @@ class ProfileHeader extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        const Text(
-          '무비러버',
-          style: TextStyle(
+        // 서버에서 받은 내 닉네임
+        Text(
+          member.nickname,
+          style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: AppColors.black,
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        // 닉네임 아래 가입일 (Challenge)
+        Text(
+          _joinedText(member.createdAt),
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppColors.gray,
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        Text(
+          member.email,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppColors.gray,
           ),
         ),
 
@@ -115,9 +211,7 @@ class ProfileHeader extends StatelessWidget {
         const SizedBox(height: 16),
 
         TextButton(
-          onPressed: () {
-            // 프로필 수정 기능 연결 예정
-          },
+          onPressed: () => context.push('/my/profile/edit'),
           style: TextButton.styleFrom(
             side: BorderSide(
               color: AppColors.violet.withValues(alpha: 0.6),

@@ -5,8 +5,9 @@ import 'package:provider/provider.dart';
 import '../data/models/tmdb_movie_dto.dart';
 import '../data/services/rating_api_service.dart';
 import '../data/services/tmdb_movie_service.dart';
-import '../view_models/learning_member_session.dart';
+import '../view_models/auth_view_model.dart';
 import '../view_models/movie_detail_view_model.dart';
+import '../view_models/my_ratings_view_model.dart';
 import 'movie_detail_screen.dart';
 
 class MovieDetailLoader extends StatefulWidget {
@@ -64,7 +65,8 @@ class _MovieDetailLoaderState extends State<MovieDetailLoader> {
         return ChangeNotifierProvider<MovieDetailViewModel>(
           create: (context) => MovieDetailViewModel(
             context.read<RatingApiService>(),
-            context.read<LearningMemberSession>(),
+            context.read<AuthViewModel>(),
+            context.read<MyRatingsViewModel>(),
           ),
           child: MovieDetailScreen(movie: movie),
         );
