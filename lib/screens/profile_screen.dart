@@ -462,35 +462,69 @@ class MyRatingsMenuSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.lavender.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: const Icon(
-          Icons.star_rate_rounded,
-          color: AppColors.violet,
-        ),
+    // 내 정보(member)가 준비된 뒤에만 '내 즐겨찾기' 행을 누를 수 있습니다.
+    final canOpenFavorites = context.watch<AuthViewModel>().member != null;
 
-        title: const Text(
-          '내가 등록한 평점',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: AppColors.black,
+    return Column(
+      children: [
+        // 1) 내가 등록한 평점 (기존 행)
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.lavender.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListTile(
+            leading: const Icon(
+              Icons.star_rate_rounded,
+              color: AppColors.violet,
+            ),
+            title: const Text(
+              '내가 등록한 평점',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.black,
+              ),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: AppColors.gray,
+            ),
+            // ⚠️ 원래 파일에 있던 onTap이 있으면 그 코드를 그대로 쓰세요.
+            onTap: () => context.push('/my/ratings'),
           ),
         ),
 
-        trailing: const Icon(
-          Icons.chevron_right,
-          color: AppColors.gray,
-        ),
+        const SizedBox(height: 8),
 
-        onTap: () {
-          context.push('/my/ratings');
-        },
-      ),
+        // 2) 내 즐겨찾기 (새로 추가한 행, 평점 행 아래)
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.lavender.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListTile(
+            leading: const Icon(
+              Icons.bookmark_rounded,
+              color: AppColors.violet,
+            ),
+            title: const Text(
+              '내 즐겨찾기',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.black,
+              ),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: AppColors.gray,
+            ),
+            enabled: canOpenFavorites,
+            onTap: () => context.push('/my/favorites'),
+          ),
+        ),
+      ],
     );
   }
 }

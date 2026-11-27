@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../data/models/tmdb_movie_dto.dart';
 import '../view_models/auth_view_model.dart';
+import '../view_models/favorite_detail_view_model.dart';
 import '../view_models/movie_detail_view_model.dart';
+import '../widgets/favorite_button.dart';
 import '../widgets/rating_dialog.dart';
 
 class MovieDetailScreen extends StatefulWidget {
@@ -16,10 +18,19 @@ class MovieDetailScreen extends StatefulWidget {
 }
 
 class _MovieDetailScreenState extends State<MovieDetailScreen> {
-  bool isFavorite = false;
   double userRating = 0.0;
 
-    Future<void> _showRatingDialog() async {
+  @override
+  void initState() {
+    super.initState();
+    // 화면이 처음 만들어질 때 서버의 즐겨찾기 여부를 한 번만 조회합니다.
+    // build()에서는 조회하지 않습니다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<FavoriteDetailViewModel>().load();
+    });
+  }
+
+  Future<void> _showRatingDialog() async {
     final viewModel = context.read<MovieDetailViewModel>();
     final auth = context.read<AuthViewModel>();
     final messenger = ScaffoldMessenger.of(context);
@@ -68,7 +79,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final movie = widget.movie;
-    // final memberId = context.watch<LearningMemberSession>().memberId;
 
     final posterPath = movie.posterPath ?? '';
     final posterUrl = posterPath.isNotEmpty
@@ -150,21 +160,35 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          movie.title,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '$releaseYear · 드라마 · 120분',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
+                        // 제목·정보 텍스트 + 오른쪽 즐겨찾기 버튼
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    movie.title,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    '$releaseYear · 드라마 · 120분',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const FavoriteButton(),
+                          ],
                         ),
                         const SizedBox(height: 10),
                         Row(
@@ -245,52 +269,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
                 ),
               ],
             ),
+            // 즐겨찾기 버튼이 위로 올라갔으므로 평점 버튼이 전체 너비를 씁니다.
             child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      setState(() => isFavorite = !isFavorite);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isFavorite
-                                ? '즐겨찾기에 추가되었습니다.'
-                                : '즐겨찾기에서 해제되었습니다.',
-                          ),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                    icon: Icon(
-                      isFavorite ? Icons.bookmark : Icons.bookmark_border,
-                      color: isFavorite
-                          ? const Color(0xFF5B4FA9)
-                          : Colors.black87,
-                    ),
-                    label: Text(
-                      isFavorite ? '즐겨찾기 취소' : '즐겨찾기',
-                      style: TextStyle(
-                        color: isFavorite
-                            ? const Color(0xFF5B4FA9)
-                            : Colors.black87,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: BorderSide(
-                        color: isFavorite
-                            ? const Color(0xFF5B4FA9)
-                            : Colors.grey,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                                Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _showRatingDialog,
                     icon: const Icon(

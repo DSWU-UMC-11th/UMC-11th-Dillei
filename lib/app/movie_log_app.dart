@@ -16,6 +16,10 @@ import '../router/app_router.dart';
 import '../view_models/auth_view_model.dart';
 import '../view_models/my_ratings_view_model.dart';
 
+import '../core/session/auth_session_bridge.dart';
+import '../core/session/session_guard.dart';
+import '../data/services/favorite_api_service.dart';
+
 class MovieLogApp extends StatelessWidget {
   const MovieLogApp({super.key});
 
@@ -63,6 +67,24 @@ class MovieLogApp extends StatelessWidget {
             context.read<AuthViewModel>(),
           ),
         ),
+        Provider<AuthSessionBridge>(
+  create: (context) {
+    final auth = context.read<AuthViewModel>();
+    return AuthSessionBridge(
+      authSignals: auth,
+      sessionVersion: () => auth.sessionVersion,
+      verifiedEmail: () =>
+          auth.status == AuthStatus.signedIn ? auth.member?.email : null,
+    );
+  },
+  dispose: (_, bridge) => bridge.dispose(),
+),
+Provider<SessionGuard>(
+  create: (context) => context.read<AuthSessionBridge>().guard,
+),
+Provider<FavoriteApiService>(
+  create: (_) => FavoriteApiService(authClient),
+),
       ],
       child: const _MovieLogRouterApp(),
     );

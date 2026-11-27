@@ -35,14 +35,14 @@ class RatingApiService {
   /// 공개 API: memberId path 유지, 토큰 없음.
   /// v7 로그인에는 memberId가 없어서 이번 평점 화면은 이 메서드를 쓰지 않습니다.
   Future<List<RatingDto>> fetchMyRatings(int memberId) async {
-    final response = await _publicDio.get('/v7/members/$memberId/ratings');
+    final response = await _publicDio.get('/v8/members/$memberId/ratings');
     return parseRatingList(response.data);
   }
 
   // 평점 등록: path와 body에 memberId가 없습니다. result의 Rating 객체를 돌려줍니다.
   Future<RatingDto> createRating(CreateRatingRequest request) async {
     final response = await _authDio.post(
-      '/v7/ratings',
+      '/v8/ratings',
       data: request.toJson(),
     );
     return parseRatingResult(response.data);
@@ -56,15 +56,15 @@ class RatingApiService {
     String? comment,
   }) async {
     final response = await _authDio.patch(
-      '/v7/ratings/$ratingId',
+      '/v8/ratings/$ratingId',
       data: {'score': score, 'comment': comment},
     );
     return parseRatingResult(response.data);
   }
 
-  // 평점 삭제: v7 성공은 204가 아니라 result가 null인 200입니다.
+  // 평점 삭제: v 성공은 204가 아니라 result가 null인 200입니다.
   Future<void> deleteRating(int ratingId) async {
-    final response = await _authDio.delete('/v7/ratings/$ratingId');
+    final response = await _authDio.delete('/v8/ratings/$ratingId');
     if (response.statusCode != 200) {
       throw StateError('예상하지 못한 삭제 응답: ${response.statusCode}');
     }
